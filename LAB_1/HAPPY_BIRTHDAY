@@ -1,0 +1,55 @@
+#include "TM4C123.h"
+
+void delayUs(int n);
+
+int main(void)
+{
+    volatile unsigned char readback;
+
+    // happy birthday
+    int n = 4; // set the pitch of the music (DO NOT SET TO 0)
+               //    C4     C4      D4       C4     F4       E4     C4      C4       D4    C4        G4 */
+    int happy[] = {3816 / n, 3816 / n, 3401 / n, 3816 / n, 2865 / n, 3030 / n, 3816 / n, 3816 / n, 3401 / n, 3816 / n, 2551 / n,
+
+                   // F4   	  C4      C4     C5      A4       F4        E4      D4   B4b  B4b  A4 */
+                   2865 / n, 3816 / n, 3816 / n, 1912 / n, 2272 / n, 2865 / n, 3030 / n, 3401 / n, 2145 / n, 2145 / n, 2272 / n, 2865 / n, 2551 / n, 2865 / n};
+
+    int duration[] = {100, 100, 200, 200, 200, 202, 100, 100, 200, 200, 200,
+                      202, 100, 100, 200, 200, 200, 200, 200, 100, 100, 200, 200, 200, 400}; // 100 is the standard
+
+    int melody[] = {1010, 800, 1000, 1100, 1180, 1184};
+    int idx = 0;
+    int val = 0;  // index for the melody tone
+    int val2 = 0; // index for the duration
+
+    // enable PORTC 4 as output
+    SYSCTL->RCGCGPIO |= 0x04;    // enable clock to GPIOC
+    readback = SYSCTL->RCGCGPIO; // make sure the clock is enabled
+    GPIOC->AMSEL &= ~0x10;       // disable analog function of PORTC 4
+    GPIOC->DIR |= 0x10;          // set PORTC 4 as output pins
+    GPIOC->DEN |= 0x10;          // set PORTC 4 as digital pins
+
+    for (;;)
+    {
+        for (idx = 0; idx < duration[val2]; idx++)
+        {
+            GPIOC->DATA |= 0x10; // turn on PB2, 0
+            delayUs(happy[val]);
+            GPIOC->DATA &= ~0x10; // turn on PB3, 1
+            delayUs(happy[val2]);
+        }
+        delayUs(5000);
+        val = val + 1;
+        val2 = val2 + 1;
+    }
+}
+
+/* delay n microseconds (50 MHz CPU clock) */
+void delayUs(int n)
+{
+    int i, j;
+    for (i = 0; i < n; i++)
+        for (j = 0; j < 6; j++)
+        {
+        } /* do nothing for 1 ms */
+}

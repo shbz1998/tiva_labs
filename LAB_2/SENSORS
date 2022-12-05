@@ -1,0 +1,309 @@
+#include "TM4C123GH6PM.h"
+#include <ctype.h>
+#include <stdint.h>
+#include <stdio.h>
+
+
+
+ 
+#define RS 1    // BIT0 mask for reg select
+#define EN 2    // BIT1 mask for E
+
+//DELAY LOGIC
+void delayMs(int n);
+void delayUs(int n);
+
+//LCD LOGIC
+void LCD_nibble_write(char data, unsigned char control);
+void LCD_command(unsigned char command);
+void LCD_data(char data);
+void LCD_init(void);
+void PORTS_init(void);
+
+int main(void) {
+	
+
+		
+	
+	  LCD_init();
+
+	
+    int potentiometer;
+    int photosensor;
+		int temperature;
+		volatile double voltage1;
+	
+
+		volatile double temperature1;
+		volatile double temperature1_f;
+		volatile double light_sensor;
+
+    char str[10 + sizeof(char)];
+	
+	
+		
+
+    SYSCTL->RCGCGPIO |= 0x10;       // enable clock to GPIOE
+    SYSCTL->RCGCADC |= 1;           // enable clock to ADC0
+    SYSCTL->RCGCGPIO |= 0x02;       // enable clock to GPIOB
+    SYSCTL->RCGCGPIO |= 0x08;       // enable clock to GPIOD
+
+    // initialize port pin PE5, 2, and 1 for ADC0 input
+    GPIOE->AFSEL |= 0x26;           // enable alternate function
+    GPIOE->DEN &= ~0x26;            // disable digital function
+    GPIOE->AMSEL |= 0x26;           // enable analog function
+
+    // initialize ADC0 Sample Sequencer 0
+    ADC0->ACTSS &= ~1;              // disable ADC0 sequencer 0 during configuration
+    ADC0->EMUX &= ~0x000F;          // software trigger for sequencer 0
+    ADC0->SSMUX0 &= ~0xFFFFFFFF;    // clear channel selects first
+    ADC0->SSMUX0 |= 0x00000821;     // ch 1 for 1st sample, ch 2 for 2nd, and ch 8 for 3rd
+    ADC0->SSCTL0 |= 0x00000600;     // finish sequence at 3rd sample and post RIS bit
+    ADC0->ACTSS |= 1;               // enable ADC0 sequencer 0
+		
+
+    // enable PORTB 3-0 as output for LEDs
+    GPIOB->DIR |= 0x0F;             // set PORTB 3-0 as output pins
+    GPIOB->DEN |= 0x0F;             // set PORTB 3-0 as digital pins
+
+    // enable PORTD 3-0 as input
+    GPIOD->DIR &= ~0x0F;            // set pin 3-0 as input
+    GPIOD->AMSEL &= ~0x0F;          // disable analog functions
+    GPIOD->DEN |= 0x0F;             // set pin 3-0 as digital pins
+		
+
+
+    while(1) {
+				
+
+			
+			
+        ADC0->PSSI |= 1;                // start a conversion at sequencer 0
+        while((ADC0->RIS & 1) == 0) ;   // wait for conversion sequence complete
+        potentiometer = ADC0->SSFIFO0;  // read conversion result of ch 1 from FIFO
+        photosensor = ADC0->SSFIFO0;    // read conversion result of ch 2 from FIFO
+        temperature = ADC0->SSFIFO0;    // read conversion result of ch 8 from FIFO
+        ADC0->ISC = 1;                  // clear completion flag
+			
+        switch(GPIOD->DATA & 3) {
+        case 0:
+            // write the most significant 4 bits of the potentiometer reading to LEDs
+            GPIOB->DATA = potentiometer >> 8;
+						potentiometer = potentiometer;
+						//formula: (ADC READING * REFERENCE VOLTAGE) / (2^(bits)-1) 
+						//TIVA IS RUNNING AT 3.3V						
+						//reference voltage for 12 bit SAR ADC is ~3.3V
+						voltage1 = (potentiometer*3.3)/4095;
+						//	voltage1 = potentiometer;
+						sprintf(str, "%1f", voltage1);
+					
+						LCD_command(1);						
+						LCD_data('P');
+						LCD_data('O');
+						LCD_data('T');
+						LCD_data('E');
+						LCD_data('N');	
+						LCD_data('T');
+						LCD_data('I');
+						LCD_data('O');
+						LCD_data('M');
+						LCD_data('E');
+						LCD_data('T');
+						LCD_data('E');
+						LCD_data('R');
+						
+						LCD_command(0xC4); //fifth column	
+						
+						LCD_data(str[0]);
+					  LCD_data(str[1]);
+						LCD_data(str[2]);		
+						LCD_data(str[3]);
+						LCD_data(str[4]);
+						LCD_data(str[5]);		
+						LCD_data(str[6]);	
+						LCD_data('V');
+            break;
+        case 1:
+            // write the most significant 4 bits of the photosensor reading to LEDs
+            GPIOB->DATA = photosensor >> 8;
+						//sprintf(str, "%ld", photosensor	); //convert to string
+						light_sensor = (photosensor*3.3)/4095;
+						sprintf(str, "%lf", light_sensor);
+						
+						
+						LCD_command(1);						
+						LCD_data('L');
+						LCD_data('I');
+						LCD_data('G');
+						LCD_data('H');
+						LCD_data('T');	
+						LCD_data('S');
+						LCD_data('E');
+						LCD_data('N');
+						LCD_data('S');
+						LCD_data('O');
+						LCD_data('R');
+						
+						LCD_command(0xC4); //fifth column	
+						
+						LCD_data(str[0]);
+					  LCD_data(str[1]);
+						LCD_data(str[2]);					
+						LCD_data(str[3]);
+					  LCD_data(str[4]);
+						LCD_data(str[5]);	
+						LCD_data('V');
+					
+				
+				
+            break;
+        case 2:
+            // write bits 5-2 of the temperature reading to LEDs
+            GPIOB->DATA = temperature >> 2; // >> 2
+						
+						//temperature formula = [analog voltage in mV - 500]/10
+						
+						temperature1 = (temperature*3300)/4095; //3.3V is reference voltage of 12bit adc, 4095 because 2^12-1=4095
+						temperature1 = (500 -temperature1)/10; //500mV offset
+						temperature1_f = (temperature1 * 9.0 / 5.0) + 32.0; //convert to farenheit
+							
+						sprintf(str, "%1f", temperature1_f);
+				
+						LCD_command(1);						
+						LCD_data('T');
+						LCD_data('E');
+						LCD_data('M');
+						LCD_data('P');
+						LCD_data('E');	
+						LCD_data('R');
+						LCD_data('A');
+						LCD_data('T');
+						LCD_data('U');
+						LCD_data('R');
+						LCD_data('E');
+						
+						LCD_command(0xC4); //fifth column	
+						
+						LCD_data(str[0]);
+					  LCD_data(str[1]);
+						LCD_data(str[2]);	
+						LCD_data(str[3]);	
+						LCD_data(str[4]);	
+						LCD_data('F');
+				
+            break;
+        default:
+			  LCD_data('H');
+        LCD_data('E');
+        LCD_data('L');
+        LCD_data('L');
+        LCD_data('O');
+				delayMs(1000);
+				 LCD_command(1);
+				 
+				 delayMs(1000);
+            GPIOB->DATA = 0;
+        }
+        delayMs(100);
+    }
+}
+
+// initialize LCD controller
+void LCD_init(void) {
+    PORTS_init();
+
+    delayMs(20);                // LCD controller reset sequence
+    LCD_nibble_write(0x30, 0);
+    delayMs(5);
+    LCD_nibble_write(0x30, 0);
+    delayMs(1);
+    LCD_nibble_write(0x30, 0);
+    delayMs(1);
+
+    LCD_nibble_write(0x20, 0);  // use 4-bit data mode
+    delayMs(1);
+    LCD_command(0x28);          // set 4-bit data, 2-line, 5x7 font
+    LCD_command(0x06);          // move cursor right
+    LCD_command(0x01);          // clear screen, move cursor to home
+    LCD_command(0x0F);          // turn on display, cursor blinking
+}
+
+/* PA2-PA5 for LCD D4-D7, respectively. 
+ * PE0 for LCD R/S
+ * PC6 for LCD EN
+ */
+void PORTS_init(void) {
+    SYSCTL->RCGCGPIO |= 0x01;   // enable clock to GPIOA
+    SYSCTL->RCGCGPIO |= 0x10;   // enable clock to GPIOE
+    SYSCTL->RCGCGPIO |= 0x08;   // enable clock to GPIOD
+    SYSCTL->RCGCGPIO |= 0x04;   // enable clock to GPIOC
+
+    // PORTA 5-2 LCD D7-D4
+    GPIOA->AMSEL &= ~0x3C;      // turn off analog of PORTA 5-2
+    GPIOA->DATA &= ~0x3C;       // PORTA 5-2 output low
+    GPIOA->DIR |= 0x3C;         // PORTA 5-2 as GPIO output pins
+    GPIOA->DEN |= 0x3C;         // PORTA 5-2 as digital pins
+
+    // PORTE 0 for LCD R/S
+    GPIOE->AMSEL &= ~0x01;      // disable analog
+    GPIOE->DIR |= 0x01;         // set PORTE 0 as output for CS
+    GPIOE->DEN |= 0x01;         // set PORTE 0 as digital pins
+    GPIOE->DATA |= 0x01;        // set PORTE 0 idle high
+
+    // PORTC 6 for LCD EN
+    GPIOC->AMSEL &= ~0x40;      // disable analog
+    GPIOC->DIR |= 0x40;         // set PORTC 6 as output for CS
+    GPIOC->DEN |= 0x40;         // set PORTC 6 as digital pins
+    GPIOC->DATA &= ~0x40;       // set PORTC 6 idle low
+
+    GPIOD->AMSEL &= ~0x80;      // disable analog
+    GPIOD->DIR |= 0x80;         // set PORTD 7 as output for CS
+    GPIOD->DEN |= 0x80;         // set PORTD 7 as digital pins
+    GPIOD->DATA |= 0x80;        // set PORTD 7 idle high
+}
+
+void LCD_nibble_write(char data, unsigned char control) {
+    /* populate data bits */
+    GPIOA->DIR |= 0x3C;         // PORTA 5-2 as GPIO output pins
+    GPIOA->DATA &= ~0x3C;       // clear data bits
+    GPIOA->DATA |= (data & 0xF0) >> 2;  // set data bits
+
+    /* set R/S bit */
+    if (control & RS)
+        GPIOE->DATA |= 1;
+    else
+        GPIOE->DATA &= ~1;
+    
+    /* pulse E */
+    GPIOC->DATA |= 1 << 6;
+    delayMs(0);
+    GPIOC->DATA &= ~(1 << 6);
+    
+    GPIOA->DIR &= ~0x3C;        // PORTA 5-2 as GPIO input pins
+}
+
+void LCD_command(unsigned char command) {
+    LCD_nibble_write(command & 0xF0, 0);    // upper nibble first
+    LCD_nibble_write(command << 4, 0);      // then lower nibble
+
+    if (command < 4)
+        delayMs(2);         // command 1 and 2 needs up to 1.64ms
+    else
+        delayMs(1);         // all others 40 us
+}
+
+void LCD_data(char data) {
+    LCD_nibble_write(data & 0xF0, RS);      // upper nibble first
+    LCD_nibble_write(data << 4, RS);        // then lower nibble
+
+    delayMs(1);
+}
+
+
+/* delay n milliseconds (50 MHz CPU clock) */
+void delayMs(int n) {
+    int i, j;
+    for(i = 0 ; i< n; i++)
+        for(j = 0; j < 6265; j++)
+            {}  /* do nothing for 1 ms */
+}
