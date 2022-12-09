@@ -1,0 +1,102 @@
+#include "TM4C123GH6PM.h"
+
+void delayMs(int n);
+
+int main(void) {
+  int pw = 0;
+  int speed = 20;
+
+  //configration steps 
+
+  //CONFIGURE BUTTONS
+
+  //Configure switches of the EDUBASE board
+  volatile unsigned char readback;
+  unsigned int data;
+
+  // enable PORTB 3-0 as output
+  SYSCTL -> RCGCGPIO |= 0x02; // enable clock to GPIOB
+  readback = SYSCTL -> RCGCGPIO; // make sure the colock is enabled
+  GPIOB -> DIR |= 0x0F; // set PORTB 3-0 as output pins
+  GPIOB -> DEN |= 0x0F; // set PORTB 3-0 as digital pins
+
+  // enable PORTD 3-0 as input
+  SYSCTL -> RCGCGPIO |= 0x08; // enable clock to GPIOD
+  readback = SYSCTL -> RCGCGPIO;
+  GPIOD -> DIR &= ~0x0F; // set pin 3-0 as input
+  GPIOD -> AMSEL &= ~0x0F; // disable analog functions
+  GPIOD -> DEN |= 0x0F; // set pin 3-0 as digital pins
+
+  //configure PWM and GPIOF
+
+  SYSCTL -> RCGCPWM |= 0x02; // enable clock to PWM1
+  SYSCTL -> RCGCGPIO |= 0x20; // enable clock to GPIOF
+
+  SYSCTL -> RCC |= 0x00100000; // enable clock divider for PWM
+  SYSCTL -> RCC &= ~0x000E0000; // clear clock divide
+  SYSCTL -> RCC |= 0x00060000; // set clock divide to 16 (50 MHz / 16 = 3.125 MHz)
+
+  delayMs(1); // wait for PWM clock to stablize
+  PWM1 -> INVERT |= 0x80; // positive pulse
+  PWM1 -> _3_CTL = 0; // disable PWM1_3 during configuration
+  PWM1 -> _3_GENB = 0x0000080C; // output high when load and low when match
+  PWM1 -> _3_LOAD = 62500 - 1; // 50 Hz 
+  PWM1 -> _3_CMPB = 3125 - 1; // 1000 us
+  PWM1 -> _3_CTL = 1; // enable PWM1_3
+  PWM1 -> ENABLE |= 0x80; // enable PWM1
+
+  GPIOF -> DIR |= 0x08; // set PORTF 3 pins as output pin
+  GPIOF -> DEN |= 0x08; // set PORTF 3 pins as digital pins
+  GPIOF -> AFSEL |= 0x08; // enable alternate function
+  GPIOF -> PCTL &= ~0x0000F000; // clear PORTF 3 alternate function
+  GPIOF -> PCTL |= 0x00005000; // set PORTF 3 alternate funtion to PWM
+
+  while (1) {
+
+    //PWM FOR LOOP
+    for (pw = 3124; pw < 6249; pw += 50) {
+      data = GPIOD -> DATA; // read the switches and write to LEDs
+      GPIOB -> DATA = data;
+
+      if (data == 1) {
+        speed = 20;
+
+      } else if (data == 2) {
+        speed = 15;
+      } else if (data == 4) {
+        speed = 4;
+      } else if (data == 8) {
+        speed = 2;
+      }
+
+      PWM1 -> _3_CMPB = pw;
+      delayMs(speed);
+    }
+
+    for (pw = 6249; pw > 3124; pw -= 50) {
+
+      data = GPIOD -> DATA; // read the switches and write to LEDs
+      GPIOB -> DATA = data;
+
+      if (data == 1) {
+        speed = 20;
+
+      } else if (data == 2) {
+        speed = 10;
+      } else if (data == 4) {
+        speed = 4;
+      } else if (data == 8) {
+        speed = 2;
+      }
+      PWM1 -> _3_CMPB = pw;
+      delayMs(speed);
+    }
+  }
+}
+
+//50MHz
+void delayMs(int n) {
+  int i, j;
+  for (i = 0; i < n; i++)
+    for (j = 0; j < 6265; j++) {}
+}
