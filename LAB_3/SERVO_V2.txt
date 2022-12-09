@@ -12,6 +12,8 @@ int main(void) {
 
   //CONFIGURE BUTTONS
 
+//--------------BUTTONS----------------------//
+
   //Configure switches of the EDUBASE board
   volatile unsigned char readback;
   unsigned int data;
@@ -30,6 +32,8 @@ int main(void) {
   GPIOD -> DEN |= 0x0F; // set pin 3-0 as digital pins
 
  
+
+//--------------PWM, CONFIG REGISTERS PROVIDED BY THE BOARD COMPANY----------------------//
 
   SYSCTL -> RCGCPWM |= 0x02; // enable clock to PWM1
   SYSCTL -> RCGCGPIO |= 0x20; // enable clock to GPIOF
@@ -52,6 +56,11 @@ int main(void) {
   GPIOF -> AFSEL |= 0x08; // enable alternate function
   GPIOF -> PCTL &= ~0x0000F000; // clear PORTF 3 alternate function
   GPIOF -> PCTL |= 0x00005000; // set PORTF 3 alternate funtion to PWM
+
+
+
+//--------------MAIN LOGIC----------------------//
+
 
   while (1) {
 
@@ -96,7 +105,7 @@ int main(void) {
   }
 }
 
-//50MHz
+
 void delayMs(int n) {
   int i, j;
   for (i = 0; i < n; i++)
