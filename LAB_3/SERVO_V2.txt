@@ -7,6 +7,8 @@ int main(void) {
   int speed = 20;
 
   //configration steps 
+  //configured registers are as provided by the edubase company..
+  
 
   //CONFIGURE BUTTONS
 
@@ -14,7 +16,7 @@ int main(void) {
   volatile unsigned char readback;
   unsigned int data;
 
-  // enable PORTB 3-0 as output
+
   SYSCTL -> RCGCGPIO |= 0x02; // enable clock to GPIOB
   readback = SYSCTL -> RCGCGPIO; // make sure the colock is enabled
   GPIOB -> DIR |= 0x0F; // set PORTB 3-0 as output pins
@@ -27,7 +29,7 @@ int main(void) {
   GPIOD -> AMSEL &= ~0x0F; // disable analog functions
   GPIOD -> DEN |= 0x0F; // set pin 3-0 as digital pins
 
-  //configure PWM and GPIOF
+ 
 
   SYSCTL -> RCGCPWM |= 0x02; // enable clock to PWM1
   SYSCTL -> RCGCGPIO |= 0x20; // enable clock to GPIOF
